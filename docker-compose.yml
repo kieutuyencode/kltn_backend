@@ -1,0 +1,23 @@
+services:
+  basetemplatenestjs:
+    image: basetemplatenestjs
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: development
+    ports:
+      - 3000:3000
+  seq:
+    image: datalust/seq:latest
+    environment:
+      - ACCEPT_EULA=Y
+    restart: always
+    ports:
+      - '5341:5341'
+      - '9091:80'
+    volumes:
+      - seq_data:/var/lib/seq/data
+
+volumes:
+  seq_data:
