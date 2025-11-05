@@ -1,12 +1,16 @@
 import { DataSource } from 'typeorm';
 import { SnakeNamingStrategy } from '../strategies';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env' });
 
 const AppDataSource = new DataSource({
   type: 'mysql',
-  host: 'localhost',
-  port: 3306,
-  username: 'root',
-  database: 'dex',
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  username: process.env.DB_USERNAME,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
   entities: [`${__dirname}/../entities/**/*.entity{.ts,.js}`],
   synchronize: false,
   logging: true,

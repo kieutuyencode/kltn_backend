@@ -3,6 +3,9 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule, AppExceptionFilter } from '~/app';
 import { EnvironmentVariables } from '~/environment-variables';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env' });
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
