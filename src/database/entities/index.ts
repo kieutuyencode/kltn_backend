@@ -9,3 +9,4 @@ export * from './swap-pair.entity';
 export * from './swap-status.entity';
 export * from './swap-history.entity';
 export * from './wallet.entity';
+export * from './users.entity';

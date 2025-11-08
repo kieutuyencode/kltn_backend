@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import { SnakeNamingStrategy } from '../strategies';
 import * as dotenv from 'dotenv';
+import * as entities from '../entities';
 
 dotenv.config({ path: '.env' });
 
@@ -11,7 +12,7 @@ const AppDataSource = new DataSource({
   username: process.env.DB_USERNAME,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
-  entities: [`${__dirname}/../entities/**/*.entity{.ts,.js}`],
+  entities: Object.values(entities),
   synchronize: false,
   logging: true,
   migrations: [`${__dirname}/resources/*{.ts,.js}`],
