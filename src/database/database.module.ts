@@ -22,7 +22,7 @@ const seedingsArray = Object.values(seedings);
         database: env.DB_NAME,
         timezone: timezoneUTC,
         entities: [...entitiesArray],
-        synchronize: true,
+        synchronize: false,
         logging: false,
         // logger,
         namingStrategy: new SnakeNamingStrategy(),

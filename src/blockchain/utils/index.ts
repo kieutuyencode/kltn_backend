@@ -1,11 +1,6 @@
 import { parseUnits, formatUnits, BigNumberish, ethers } from 'ethers';
 import Decimal from 'decimal.js';
-import {
-  TKey,
-  TReleaseAsset,
-  TTransactionOptions,
-  TTransferCoin,
-} from '../types';
+import { TKey, TTransactionOptions, TTransferCoin } from '../types';
 import { SiweMessage } from 'siwe';
 import { BadRequestException } from '@nestjs/common';
 
@@ -42,33 +37,6 @@ export const transferCoin = async (
     to: toAddress,
     value: toUnits(amount, decimals),
   });
-
-  if (waitForReceipt) {
-    await tx.wait();
-  }
-
-  return tx;
-};
-
-export const releaseAsset = async (
-  {
-    fromWalletContract,
-    toAddress,
-    amount,
-    tokenAddress,
-    sourceChain,
-    txId,
-  }: TReleaseAsset,
-  { waitForReceipt, decimals }: TTransactionOptions = {},
-) => {
-  const methodName = tokenAddress ? 'release' : 'releaseNative';
-  const params = tokenAddress
-    ? [toAddress, tokenAddress, toUnits(amount, decimals), sourceChain, txId]
-    : [toAddress, toUnits(amount, decimals), sourceChain, txId];
-
-  const tx: ethers.TransactionResponse = await fromWalletContract[methodName](
-    ...params,
-  );
 
   if (waitForReceipt) {
     await tx.wait();

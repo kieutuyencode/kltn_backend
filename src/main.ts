@@ -3,6 +3,7 @@ import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule, AppExceptionFilter } from '~/app';
 import { EnvironmentVariables } from '~/environment-variables';
+import { Logger } from '~/logger';
 import * as dotenv from 'dotenv';
 
 dotenv.config({ path: '.env' });
@@ -20,10 +21,12 @@ async function bootstrap() {
 
   const env = app.get(EnvironmentVariables);
 
-  console.log(`Server is running on port ${env.PORT}`);
+  const logger = app.get(Logger);
+  app.useLogger(logger);
+  logger.info(`Server is running on port ${env.PORT}`);
 
   const httpAdapterHost = app.get(HttpAdapterHost);
-  app.useGlobalFilters(new AppExceptionFilter(httpAdapterHost));
+  app.useGlobalFilters(new AppExceptionFilter(httpAdapterHost, logger));
 
   app.setGlobalPrefix('api');
 

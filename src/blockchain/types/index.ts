@@ -13,22 +13,3 @@ export type TTransferCoin = {
   toAddress: string;
   amount: Decimal;
 };
-
-export type TReleaseAsset = {
-  fromWalletContract: ethers.Contract;
-  toAddress: string;
-  tokenAddress?: string;
-  amount: Decimal;
-  sourceChain: number;
-  txId: string;
-};
-
-export type TVerifyTokenTransfer = {
-  txhash: string;
-  fromAddress: string;
-  toAddress: string;
-  amount: Decimal;
-  network: ethers.Provider;
-  contractAddress: string;
-  abi: ethers.InterfaceAbi;
-};

@@ -10,6 +10,7 @@ import { createLogMessage } from '../utils';
 import { LogTag } from '../constants';
 import { dayUTC } from '~/date-time';
 import { Reflector } from '@nestjs/core';
+import { CLIENT_ID } from '~/security';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
@@ -33,6 +34,7 @@ export class LoggingInterceptor implements NestInterceptor {
         id,
         createdAt: now,
         ip: request?.ip,
+        [CLIENT_ID]: request[CLIENT_ID],
       },
     );
 

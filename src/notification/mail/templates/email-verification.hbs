@@ -1,0 +1,74 @@
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Xác thực Email</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f4f4f4;
+      }
+      .container {
+        background-color: #ffffff;
+        padding: 30px;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #2c3e50;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      p {
+        margin-bottom: 15px;
+      }
+      .code-box {
+        background-color: #f8f9fa;
+        border: 2px dashed #3498db;
+        border-radius: 5px;
+        padding: 15px;
+        text-align: center;
+        margin: 20px 0;
+        font-size: 24px;
+        font-weight: bold;
+        color: #2c3e50;
+        letter-spacing: 3px;
+      }
+      .footer {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+        font-size: 12px;
+        color: #7f8c8d;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <h1>Xác thực Email</h1>
+      <p>Xin chào <strong>{{name}}</strong>,</p>
+      <p>Cảm ơn bạn đã đăng ký tài khoản. Để hoàn tất quá trình đăng ký, vui
+        lòng xác thực địa chỉ email của bạn.</p>
+
+      <p>Mã xác thực của bạn là:</p>
+      <div class='code-box'>{{verificationCode}}</div>
+      <p>Vui lòng nhập mã này vào trang xác thực để kích hoạt tài khoản.</p>
+
+      <p><strong>Lưu ý:</strong>
+        Mã xác thực này có hiệu lực trong vòng
+        {{expiresInMinutes}}
+        phút. Nếu bạn không yêu cầu email này, vui lòng bỏ qua.</p>
+
+      <div class='footer'>
+        <p>Trân trọng,<br />Đội ngũ hỗ trợ</p>
+        <p>Email này được gửi tự động, vui lòng không trả lời.</p>
+      </div>
+    </div>
+  </body>
+</html>

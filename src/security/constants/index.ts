@@ -1,3 +1,5 @@
 export const SKIP_AUTH = 'SKIP_AUTH';
 
 export const ACCESS_CONTROLLED = 'ACCESS_CONTROLLED';
+
+export const CLIENT_ID = 'clientId';
