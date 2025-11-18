@@ -25,7 +25,7 @@ export class WalletAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const token = request.headers['walletToken'] as string;
+    const token = request.headers['walletAccessToken'.toLowerCase()] as string;
 
     if (!token) {
       throw new UnauthorizedException();
@@ -42,7 +42,7 @@ export class WalletAuthGuard implements CanActivate {
         nonce,
       });
       if (!isValidNonce) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException('Phiên đăng nhập ví đã hết hạn');
       }
 
       request[WALLET_ADDRESS] = address;

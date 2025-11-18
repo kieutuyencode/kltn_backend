@@ -12,7 +12,7 @@ export class VerificationCode extends IdWithTimestamps {
     Object.assign(this, entity);
   }
 
-  @Column('varchar', { length: 50 })
+  @Column('varchar', { length: 100 })
   code: string;
 
   @DateTimeColumn()

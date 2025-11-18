@@ -1,14 +1,22 @@
-import { parseUnits, formatUnits, BigNumberish, ethers } from 'ethers';
+import { parseUnits, formatUnits, ethers, hexlify } from 'ethers';
 import Decimal from 'decimal.js';
 import { TKey, TTransactionOptions, TTransferCoin } from '../types';
 import { SiweMessage } from 'siwe';
 import { BadRequestException } from '@nestjs/common';
 
-export const fromUnits = (value: BigNumberish, decimals: number = 18) =>
-  new Decimal(formatUnits(value, decimals));
+export const fromUnits = (
+  value: string | number | bigint,
+  decimals: number = 18,
+) => new Decimal(formatUnits(value, decimals));
 
-export const toUnits = (value: Decimal, decimals: number = 18) =>
-  parseUnits(new Decimal(value).toFixed(decimals), decimals);
+export const toUnits = (
+  value: string | number | Decimal,
+  decimals: number = 18,
+) => parseUnits(new Decimal(value).toFixed(decimals), decimals);
+
+export const formatTxhash = (txhash: string) => {
+  return hexlify(txhash).toLowerCase();
+};
 
 export const createWallet = () => {
   return ethers.Wallet.createRandom();

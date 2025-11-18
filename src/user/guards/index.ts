@@ -24,15 +24,19 @@ export class UserAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
-    const token = request.headers['userAccessToken'] as string;
+    const token = request.headers['userAccessToken'.toLowerCase()] as string;
 
     if (!token) {
       throw new UnauthorizedException();
     }
 
-    const data = this.jwtService.verifyToken(token) as TUserPayload;
-    request[USER] = data;
-    request[CLIENT_ID] = data.id;
+    try {
+      const data = this.jwtService.verifyToken(token) as TUserPayload;
+      request[USER] = data;
+      request[CLIENT_ID] = data.id;
+    } catch (error) {
+      throw new UnauthorizedException('Phiên đăng nhập đã hết hạn');
+    }
 
     return true;
   }

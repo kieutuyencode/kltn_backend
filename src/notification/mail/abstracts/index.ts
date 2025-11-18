@@ -6,4 +6,8 @@ export abstract class MailTransportOptions {
     pass: string;
   };
   abstract secure: boolean;
+  abstract from: {
+    name: string;
+    address: string;
+  };
 }

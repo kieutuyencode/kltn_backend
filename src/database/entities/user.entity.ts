@@ -27,6 +27,9 @@ export class User extends IdWithTimestamps {
   @Column('varchar', { length: 50, nullable: true })
   avatar?: string;
 
+  @Column('text', { nullable: true })
+  description?: string;
+
   @ManyToOne(() => UserRole)
   role: UserRole;
 

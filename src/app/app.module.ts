@@ -9,6 +9,7 @@ import { NotificationModule } from '~/notification';
 import { ConfigModule } from '~/config';
 import { FileModule } from '~/file';
 import { UserModule } from '~/user';
+import { EventModule } from '~/event';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { UserModule } from '~/user';
     ConfigModule,
     FileModule,
     UserModule,
+    EventModule,
   ],
 })
 export class AppModule {}

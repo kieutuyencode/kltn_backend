@@ -13,10 +13,9 @@ export abstract class EnvironmentVariables {
   abstract MAIL_PORT: number;
   abstract MAIL_USER: string;
   abstract MAIL_PASSWORD: string;
+  abstract MAIL_FROM_NAME: string;
   abstract ETHERSCAN_V2_API_URL: string;
   abstract ETHERSCAN_V2_API_KEY: string;
-  abstract PRIVATE_KEY_BRIDGE_TOBE: string;
-  abstract PRIVATE_KEY_BRIDGE_BNB: string;
-  abstract PRIVATE_KEY_BRIDGE_ETH: string;
+  abstract EVENT_ADMIN_PRIVATE_KEY: string;
   abstract TOBESCAN_API_URL: string;
 }

@@ -16,6 +16,10 @@ import { EnvironmentVariables } from '~/environment-variables';
             user: env.MAIL_USER,
             pass: env.MAIL_PASSWORD,
           },
+          from: {
+            name: env.MAIL_FROM_NAME,
+            address: env.MAIL_USER,
+          },
         };
       },
       inject: [EnvironmentVariables],

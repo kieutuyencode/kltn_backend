@@ -54,7 +54,7 @@ export class AuthService {
     });
     await this.userRepository.save(newUser);
 
-    await this.generateAndSendVerificationCode({
+    await this.generateAndSendEmailVerificationCode({
       userId: newUser.id,
       email,
       fullName,
@@ -130,7 +130,7 @@ export class AuthService {
       return;
     }
 
-    await this.generateAndSendVerificationCode({
+    await this.generateAndSendEmailVerificationCode({
       userId: user.id,
       email,
       fullName: user.fullName,
@@ -161,7 +161,39 @@ export class AuthService {
     await this.verificationCodeRepository.remove(verificationCode);
   }
 
-  async generateAndSendVerificationCode({
+  async generateVerificationCode({
+    userId,
+    typeId,
+    expiresInMinutes,
+  }: {
+    userId: number;
+    typeId: VerificationCodeTypeId;
+    expiresInMinutes: number;
+  }) {
+    const code = generateOtpCode();
+    const hashedCode = await hash(code);
+    const expiresAt = dayUTC().add(expiresInMinutes, 'minutes');
+
+    let verificationCode = await this.verificationCodeRepository.findOne({
+      where: { userId, typeId },
+    });
+    if (verificationCode) {
+      verificationCode.code = hashedCode;
+      verificationCode.expiresAt = expiresAt;
+    } else {
+      verificationCode = new VerificationCode({
+        code: hashedCode,
+        expiresAt,
+        userId,
+        typeId,
+      });
+    }
+    await this.verificationCodeRepository.save(verificationCode);
+
+    return code;
+  }
+
+  async generateAndSendEmailVerificationCode({
     userId,
     email,
     fullName,
@@ -175,15 +207,11 @@ export class AuthService {
         ConfigKey.VERIFY_EMAIL_CODE_EXPIRES_IN_MINUTES,
       ),
     );
-    const verifyEmailCode = generateOtpCode();
-    const hashedVerifyEmailCode = await hash(verifyEmailCode);
-    const newVerificationCode = new VerificationCode({
-      code: hashedVerifyEmailCode,
-      expiresAt: dayUTC().add(verifyEmailCodeExpiresInMinutes, 'minutes'),
-      typeId: VerificationCodeTypeId.VERIFY_EMAIL,
+    const verifyEmailCode = await this.generateVerificationCode({
       userId,
+      typeId: VerificationCodeTypeId.VERIFY_EMAIL,
+      expiresInMinutes: verifyEmailCodeExpiresInMinutes,
     });
-    await this.verificationCodeRepository.save(newVerificationCode);
 
     await this.mailService.sendEmailVerification({
       to: email,
@@ -231,15 +259,11 @@ export class AuthService {
         ConfigKey.RESET_PASSWORD_CODE_EXPIRES_IN_MINUTES,
       ),
     );
-    const resetPasswordCode = generateOtpCode();
-    const hashedResetPasswordCode = await hash(resetPasswordCode);
-    const newVerificationCode = new VerificationCode({
-      code: hashedResetPasswordCode,
-      expiresAt: dayUTC().add(resetPasswordCodeExpiresInMinutes, 'minutes'),
-      typeId: VerificationCodeTypeId.RESET_PASSWORD,
+    const resetPasswordCode = await this.generateVerificationCode({
       userId: user.id,
+      typeId: VerificationCodeTypeId.RESET_PASSWORD,
+      expiresInMinutes: resetPasswordCodeExpiresInMinutes,
     });
-    await this.verificationCodeRepository.save(newVerificationCode);
 
     await this.mailService.sendForgotPassword({
       to: email,

@@ -19,11 +19,10 @@ const environmentVariablesProvider: Provider = {
     MAIL_PORT: Number(process.env.MAIL_PORT!),
     MAIL_USER: process.env.MAIL_USER!,
     MAIL_PASSWORD: process.env.MAIL_PASSWORD!,
+    MAIL_FROM_NAME: process.env.MAIL_FROM_NAME!,
     ETHERSCAN_V2_API_URL: process.env.ETHERSCAN_V2_API_URL!,
     ETHERSCAN_V2_API_KEY: process.env.ETHERSCAN_V2_API_KEY!,
-    PRIVATE_KEY_BRIDGE_TOBE: process.env.PRIVATE_KEY_BRIDGE_TOBE!,
-    PRIVATE_KEY_BRIDGE_BNB: process.env.PRIVATE_KEY_BRIDGE_BNB!,
-    PRIVATE_KEY_BRIDGE_ETH: process.env.PRIVATE_KEY_BRIDGE_ETH!,
+    EVENT_ADMIN_PRIVATE_KEY: process.env.EVENT_ADMIN_PRIVATE_KEY!,
     TOBESCAN_API_URL: process.env.TOBESCAN_API_URL!,
   }),
 };

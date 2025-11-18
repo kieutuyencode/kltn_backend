@@ -1,7 +1,7 @@
 import { InjectRepository, Repository, User } from '~/database';
 import { UpdateProfileDto } from './dtos';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FileService, Folder } from '~/file';
+import { FileService, Folder, isSameFileName } from '~/file';
 
 @Injectable()
 export class ProfileService {
@@ -38,7 +38,7 @@ export class ProfileService {
     if (data.phone) {
       user.phone = data.phone;
     }
-    if (data.avatar && data.avatar !== user.avatar) {
+    if (data.avatar && !isSameFileName(data.avatar, user.avatar)) {
       const newAvatarPath =
         await this.fileService.moveFromTemporaryAndDeleteOldFile({
           fileName: data.avatar,

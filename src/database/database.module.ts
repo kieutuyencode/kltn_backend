@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EnvironmentVariables } from '~/environment-variables';
+import { TypeOrmLogger } from './logger';
 import { timezoneUTC } from '~/date-time';
 import * as entities from './entities';
 import * as seedings from './seedings';
@@ -13,7 +14,7 @@ const seedingsArray = Object.values(seedings);
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
-      useFactory: (env: EnvironmentVariables) => ({
+      useFactory: (env: EnvironmentVariables, logger: TypeOrmLogger) => ({
         type: 'mysql',
         host: env.DB_HOST,
         port: env.DB_PORT,
@@ -27,7 +28,8 @@ const seedingsArray = Object.values(seedings);
         // logger,
         namingStrategy: new SnakeNamingStrategy(),
       }),
-      inject: [EnvironmentVariables],
+      inject: [EnvironmentVariables, TypeOrmLogger],
+      extraProviders: [TypeOrmLogger],
     }),
     TypeOrmModule.forFeature([...entitiesArray]),
   ],

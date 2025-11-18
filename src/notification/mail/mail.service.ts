@@ -61,7 +61,11 @@ export class MailService {
 
   async send(options: TMailOptions) {
     const html = await this.compileTemplate(options.template, options.context);
-    const mailOptions = { html, ...options };
+    const mailOptions = {
+      from: this.mailTransportOptions.from,
+      html,
+      ...options,
+    };
 
     const transporter = nodemailer.createTransport(this.mailTransportOptions);
     const result = await transporter.sendMail(mailOptions);
