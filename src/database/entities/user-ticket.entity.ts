@@ -1,10 +1,11 @@
+import { Exclude } from 'class-transformer';
 import { Column, DeepPartial, Entity, ManyToOne } from 'typeorm';
 import { IdWithTimestamps } from '../abstracts';
+import { AddressColumn, TxhashColumn } from '../decorators';
 import { EventSchedule } from './event-schedule.entity';
-import { User } from './user.entity';
 import { EventTicketType } from './event-ticket-type.entity';
 import { Event } from './event.entity';
-import { Exclude } from 'class-transformer';
+import { User } from './user.entity';
 
 @Entity()
 export class UserTicket extends IdWithTimestamps {
@@ -13,9 +14,12 @@ export class UserTicket extends IdWithTimestamps {
     Object.assign(this, entity);
   }
 
+  @AddressColumn()
+  walletAddress: string;
+
   @Exclude()
-  @Column('varchar', { length: 100, unique: true })
-  qrCode: string;
+  @Column('varchar', { length: 100, nullable: true })
+  qrCode?: string;
 
   @Column('boolean', { default: false })
   isRedeemed: boolean;
@@ -44,6 +48,12 @@ export class UserTicket extends IdWithTimestamps {
   @Column({ nullable: true })
   userId: number;
 
-  @Column('int')
+  @Column('int', { unique: true })
   _ticketId: number;
+
+  @Column('boolean', { default: false })
+  _isRedeemed: boolean;
+
+  @TxhashColumn({ nullable: true })
+  redeemTxhash?: string | null;
 }

@@ -5,3 +5,4 @@ export * from './verification-code-type.seeding';
 export * from './event-status.seeding';
 export * from './event-category.seeding';
 export * from './payment-ticket-status.seeding';
+export * from './payment-organizer-status.seeding';

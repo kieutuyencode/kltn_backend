@@ -14,3 +14,5 @@ export * from './event-ticket-type.entity';
 export * from './payment-ticket.entity';
 export * from './payment-ticket-status.entity';
 export * from './user-ticket.entity';
+export * from './payment-organizer.entity';
+export * from './payment-organizer-status.entity';

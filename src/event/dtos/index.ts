@@ -4,7 +4,11 @@ import {
   createScheduleSchema,
   createTicketTypeSchema,
   getMyEventSchema,
+  getMyPaymentTicketSchema,
+  getMyTicketSchema,
   getPublicEventSchema,
+  redeemTicketSchema,
+  transferTicketSchema,
   updateEventSchema,
   updateScheduleSchema,
   updateTicketTypeSchema,
@@ -28,3 +32,11 @@ export type GetMyEventDto = z.infer<typeof getMyEventSchema>;
 export type GetPublicEventDto = z.infer<typeof getPublicEventSchema>;
 
 export type BuyTicketDto = z.infer<typeof buyTicketSchema>;
+
+export type GetMyTicketDto = z.infer<typeof getMyTicketSchema>;
+
+export type RedeemTicketDto = z.infer<typeof redeemTicketSchema>;
+
+export type GetMyPaymentTicketDto = z.infer<typeof getMyPaymentTicketSchema>;
+
+export type TransferTicketDto = z.infer<typeof transferTicketSchema>;

@@ -27,6 +27,11 @@ export class ConfigSeeding implements ISeeding {
           key: ConfigKey.RESET_PASSWORD_CODE_EXPIRES_IN_MINUTES,
           value: '5',
         }),
+        new Config({
+          id: 3,
+          key: ConfigKey.SELL_TICKET_FEE_RATE,
+          value: '0.05',
+        }),
       ]);
     }
   }

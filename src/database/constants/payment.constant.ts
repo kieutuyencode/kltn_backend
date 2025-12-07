@@ -4,3 +4,8 @@ export enum PaymentTicketStatusId {
   SUCCESS = 3,
   FAIL = 4,
 }
+
+export enum PaymentOrganizerStatusId {
+  PENDING = 1,
+  SUCCESS = 2,
+}

@@ -3,6 +3,7 @@ import {
   ConfigSeeding,
   EventCategorySeeding,
   EventStatusSeeding,
+  PaymentOrganizerStatusSeeding,
   PaymentTicketStatusSeeding,
   UserRoleSeeding,
   UserStatusSeeding,
@@ -20,6 +21,7 @@ export class DataSeedingHandler {
     private readonly eventStatusSeeding: EventStatusSeeding,
     private readonly eventCategorySeeding: EventCategorySeeding,
     private readonly paymentTicketStatusSeeding: PaymentTicketStatusSeeding,
+    private readonly paymentOrganizerStatusSeeding: PaymentOrganizerStatusSeeding,
   ) {}
 
   @Timeout(DataSeedingHandler.name, 0)
@@ -32,6 +34,7 @@ export class DataSeedingHandler {
       this.eventStatusSeeding,
       this.eventCategorySeeding,
       this.paymentTicketStatusSeeding,
+      this.paymentOrganizerStatusSeeding,
     ];
 
     for (const seeding of seedings) {

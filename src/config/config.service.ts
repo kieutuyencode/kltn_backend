@@ -15,6 +15,7 @@ export class ConfigService {
         key: In([
           ConfigKey['VERIFY_EMAIL_CODE_EXPIRES_IN_MINUTES'],
           ConfigKey['RESET_PASSWORD_CODE_EXPIRES_IN_MINUTES'],
+          ConfigKey['SELL_TICKET_FEE_RATE'],
         ]),
       },
     });

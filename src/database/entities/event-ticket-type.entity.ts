@@ -34,7 +34,7 @@ export class EventTicketType extends IdWithTimestamps {
   @DateTimeColumn()
   saleEndDate: DateTime;
 
-  @ManyToOne(() => EventSchedule)
+  @ManyToOne(() => EventSchedule, { onDelete: 'CASCADE' })
   schedule: EventSchedule;
 
   @Column({ nullable: true })

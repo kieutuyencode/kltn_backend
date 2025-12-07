@@ -62,3 +62,25 @@ export const getPublicEventSchema = z
 export const buyTicketSchema = z.object({
   paymentTxhash: z.string().trim(),
 });
+
+export const getMyTicketSchema = z
+  .object({
+    isRedeemed: z.enum(['1', '0']).optional(),
+  })
+  .extend(paginationSchema.shape);
+
+export const redeemTicketSchema = z.object({
+  encodedQrCode: z.string().trim(),
+});
+
+export const getMyPaymentTicketSchema = z
+  .object({
+    statusId: z.coerce.number().optional(),
+  })
+  .extend(paginationSchema.shape);
+
+export const transferTicketSchema = z.object({
+  ticketId: z.number(),
+  email: z.string().trim().toLowerCase().email(),
+  txhash: z.string().trim(),
+});

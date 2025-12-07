@@ -16,7 +16,11 @@ import {
   CreateScheduleDto,
   CreateTicketTypeDto,
   GetMyEventDto,
+  GetMyPaymentTicketDto,
+  GetMyTicketDto,
   GetPublicEventDto,
+  RedeemTicketDto,
+  TransferTicketDto,
   UpdateEventDto,
   UpdateScheduleDto,
   UpdateTicketTypeDto,
@@ -28,7 +32,11 @@ import {
   createScheduleSchema,
   createTicketTypeSchema,
   getMyEventSchema,
+  getMyPaymentTicketSchema,
+  getMyTicketSchema,
   getPublicEventSchema,
+  redeemTicketSchema,
+  transferTicketSchema,
   updateEventSchema,
   updateScheduleSchema,
   updateTicketTypeSchema,
@@ -40,6 +48,30 @@ import { WalletAddress, WalletAuth } from '~/blockchain';
 @Controller('event')
 export class EventController {
   constructor(private readonly eventService: EventService) {}
+
+  @SkipAuth()
+  @Get('category')
+  async getCategory() {
+    return Result.success({
+      data: await this.eventService.getCategory(),
+    });
+  }
+
+  @SkipAuth()
+  @Get('status')
+  async getEventStatus() {
+    return Result.success({
+      data: await this.eventService.getEventStatus(),
+    });
+  }
+
+  @SkipAuth()
+  @Get('payment-ticket-status')
+  async getPaymentTicketStatus() {
+    return Result.success({
+      data: await this.eventService.getPaymentTicketStatus(),
+    });
+  }
 
   @UserAuth()
   @Post('')
@@ -69,10 +101,10 @@ export class EventController {
   }
 
   @SkipAuth()
-  @Get('public/:id')
-  async getPublicEventDetail(@Param('id') eventId: number) {
+  @Get('public/:slug')
+  async getPublicEventDetail(@Param('slug') slug: string) {
     return Result.success({
-      data: await this.eventService.getPublicEventDetail({ eventId }),
+      data: await this.eventService.getPublicEventDetail({ slug }),
     });
   }
 
@@ -243,6 +275,102 @@ export class EventController {
       data: await this.eventService.deleteEvent({
         eventId,
         userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('ticket')
+  async getMyTicket(
+    @Query(new SchemaValidationPipe(getMyTicketSchema))
+    getMyTicketDto: GetMyTicketDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getMyTicket({
+        ...getMyTicketDto,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('ticket/:id')
+  async getMyTicketDetail(
+    @Param('id') ticketId: number,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getMyTicketDetail({
+        ticketId,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @WalletAuth()
+  @Get('ticket/:id/qr-code')
+  async getTicketQrCode(
+    @Param('id') ticketId: number,
+    @UserPayload() user: TUserPayload,
+    @WalletAddress() walletAddress: string,
+  ) {
+    return Result.success({
+      data: await this.eventService.getTicketQrCode({
+        ticketId,
+        userId: user.id,
+        walletAddress,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('payment-ticket')
+  async getMyPaymentTicket(
+    @Query(new SchemaValidationPipe(getMyPaymentTicketSchema))
+    getMyPaymentTicketDto: GetMyPaymentTicketDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getMyPaymentTicket({
+        ...getMyPaymentTicketDto,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Post('redeem-ticket')
+  async redeemTicket(
+    @Body(new SchemaValidationPipe(redeemTicketSchema))
+    redeemTicketDto: RedeemTicketDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      message: 'Xác thực vé thành công',
+      data: await this.eventService.redeemTicket({
+        ...redeemTicketDto,
+        organizerId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @WalletAuth()
+  @Post('transfer-ticket')
+  async transferTicket(
+    @Body(new SchemaValidationPipe(transferTicketSchema))
+    transferTicketDto: TransferTicketDto,
+    @UserPayload() user: TUserPayload,
+    @WalletAddress() walletAddress: string,
+  ) {
+    return Result.success({
+      message: 'Chuyển vé thành công',
+      data: await this.eventService.transferTicket({
+        ...transferTicketDto,
+        userId: user.id,
+        walletAddress,
       }),
     });
   }

@@ -7,15 +7,19 @@ import {
 import {
   DataSource,
   Event,
+  EventCategory,
   EventSchedule,
+  EventStatus,
   EventStatusId,
   EventTicketType,
   InjectRepository,
   MoreThan,
   Not,
   PaymentTicket,
+  PaymentTicketStatus,
   PaymentTicketStatusId,
   Repository,
+  User,
   UserTicket,
 } from '~/database';
 import {
@@ -24,7 +28,10 @@ import {
   CreateScheduleDto,
   CreateTicketTypeDto,
   GetMyEventDto,
+  GetMyPaymentTicketDto,
+  GetMyTicketDto,
   GetPublicEventDto,
+  TransferTicketDto,
   UpdateEventDto,
   UpdateScheduleDto,
   UpdateTicketTypeDto,
@@ -41,6 +48,8 @@ import {
 } from '~/blockchain/constants';
 import { ethers } from 'ethers';
 import { eventAbi } from '~/blockchain/abis';
+import { generateOtpCode } from '~/shared';
+import { decode, encode, hash, verifyHash } from '~/security';
 
 @Injectable()
 export class EventService {
@@ -57,12 +66,34 @@ export class EventService {
     @InjectRepository(EventTicketType)
     private readonly eventTicketTypeRepository: Repository<EventTicketType>,
     private readonly dataSource: DataSource,
+    @InjectRepository(EventCategory)
+    private readonly eventCategoryRepository: Repository<EventCategory>,
+    @InjectRepository(EventStatus)
+    private readonly eventStatusRepository: Repository<EventStatus>,
+    @InjectRepository(PaymentTicketStatus)
+    private readonly paymentTicketStatusRepository: Repository<PaymentTicketStatus>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
+
+  async getCategory() {
+    const categories = await this.eventCategoryRepository.find();
+    return categories;
+  }
+
+  async getEventStatus() {
+    const statuses = await this.eventStatusRepository.find();
+    return statuses;
+  }
+
+  async getPaymentTicketStatus() {
+    const statuses = await this.paymentTicketStatusRepository.find();
+    return statuses;
+  }
 
   async createEvent({ image, ...data }: CreateEventDto & { userId: number }) {
     const event = new Event({
       ...data,
-      statusId: EventStatusId.DRAFT,
     });
 
     const newImagePath = await this.fileService.moveFromTemporary({
@@ -520,6 +551,7 @@ export class EventService {
   }) {
     const schedules = await this.eventScheduleRepository.find({
       where: { eventId, event: { userId } },
+      order: { startDate: 'ASC' },
     });
     return schedules;
   }
@@ -533,6 +565,7 @@ export class EventService {
   }) {
     const ticketTypes = await this.eventTicketTypeRepository.find({
       where: { scheduleId, schedule: { event: { userId } } },
+      order: { saleStartDate: 'ASC' },
     });
     return ticketTypes;
   }
@@ -616,7 +649,7 @@ export class EventService {
     };
   }
 
-  async getPublicEventDetail({ eventId }: { eventId: number }) {
+  async getPublicEventDetail({ slug }: { slug: string }) {
     const event = await this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.status', 'status')
@@ -624,7 +657,7 @@ export class EventService {
       .leftJoinAndSelect('event.user', 'user')
       .leftJoinAndSelect('event.schedules', 'schedules')
       .leftJoinAndSelect('schedules.ticketTypes', 'ticketTypes')
-      .andWhere('event.id = :eventId', { eventId })
+      .andWhere('event.slug = :slug', { slug })
       .andWhere('event.statusId = :statusId', {
         statusId: EventStatusId.ACTIVE,
       })
@@ -660,11 +693,18 @@ export class EventService {
       throw new NotFoundException(`Giao dịch ${paymentTxhash} không tồn tại`);
     }
 
+    const block = await provider.getBlock(txReceipt.blockNumber);
+    const createdAt = dayUTC(block!.timestamp * 1000);
     const ticketPurchasedTransactionParsedLog = txReceipt?.logs
-      .map((log) => eventInterface.parseLog(log))
-      .find((parsedLog) => {
-        return parsedLog?.name === 'TicketPurchased';
-      });
+      .map((log) => {
+        try {
+          return eventInterface.parseLog(log);
+        } catch (e) {
+          return null; // log không match ABI → bỏ qua
+        }
+      })
+      .find((parsedLog) => parsedLog?.name === 'TicketPurchased');
+
     const contractAddress = txReceipt.to!;
 
     if (!ticketPurchasedTransactionParsedLog) {
@@ -719,6 +759,7 @@ export class EventService {
           eventId: ticketType.eventId,
           userId,
           statusId: PaymentTicketStatusId.PENDING_MINT,
+          createdAt,
         });
 
         await transactionalEntityManager.save([ticketType, newPaymentTicket]);
@@ -726,5 +767,220 @@ export class EventService {
         return newPaymentTicket;
       },
     );
+  }
+
+  async getMyTicket({
+    userId,
+    isRedeemed,
+    limit,
+    page,
+  }: GetMyTicketDto & { userId: number }) {
+    const queryBuilder = this.userTicketRepository
+      .createQueryBuilder('userTicket')
+      .andWhere('userTicket.userId = :userId', { userId })
+      .leftJoinAndSelect('userTicket.ticketType', 'ticketType')
+      .leftJoinAndSelect('userTicket.schedule', 'schedule')
+      .leftJoinAndSelect('userTicket.event', 'event')
+      .leftJoinAndSelect('userTicket.user', 'user')
+      .orderBy('userTicket.id', 'DESC');
+
+    if (isRedeemed !== undefined) {
+      queryBuilder.andWhere('userTicket.isRedeemed = :isRedeemed', {
+        isRedeemed,
+      });
+    }
+
+    return await paginate(queryBuilder, { limit, page });
+  }
+
+  async getMyTicketDetail({
+    ticketId,
+    userId,
+  }: {
+    ticketId: number;
+    userId: number;
+  }) {
+    const ticket = await this.userTicketRepository.findOne({
+      where: { id: ticketId, userId },
+      relations: {
+        event: true,
+        schedule: true,
+        ticketType: true,
+      },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Không tìm thấy vé');
+    }
+
+    return ticket;
+  }
+
+  async getTicketQrCode({
+    ticketId,
+    userId,
+    walletAddress,
+  }: {
+    ticketId: number;
+    userId: number;
+    walletAddress: string;
+  }) {
+    const ticket = await this.userTicketRepository.findOne({
+      where: { id: ticketId, userId, walletAddress, isRedeemed: false },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Không tìm thấy vé');
+    }
+
+    const qrCode = generateOtpCode();
+    const hashedCode = await hash(qrCode);
+    ticket.qrCode = hashedCode;
+    await this.userTicketRepository.save(ticket);
+
+    return this.encodeQrCode({ qrCode, _ticketId: ticket._ticketId });
+  }
+
+  async redeemTicket({
+    encodedQrCode,
+    organizerId,
+  }: {
+    encodedQrCode: string;
+    organizerId: number;
+  }) {
+    const { qrCode, _ticketId } = this.decodeQrCode({ encodedQrCode });
+    const ticket = await this.userTicketRepository.findOne({
+      where: { _ticketId, isRedeemed: false, event: { userId: organizerId } },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Không tìm thấy vé');
+    }
+
+    if (!ticket.qrCode) {
+      throw new BadRequestException('Mã QR không hợp lệ');
+    }
+
+    const isCodeValid = await verifyHash(ticket.qrCode, qrCode);
+    if (!isCodeValid) {
+      throw new BadRequestException('Mã QR không hợp lệ');
+    }
+
+    ticket.isRedeemed = true;
+    await this.userTicketRepository.save(ticket);
+
+    return ticket;
+  }
+
+  encodeQrCode({ qrCode, _ticketId }: { qrCode: string; _ticketId: number }) {
+    return encode({ qrCode, _ticketId });
+  }
+
+  decodeQrCode({ encodedQrCode }: { encodedQrCode: string }) {
+    try {
+      const decoded = decode(encodedQrCode);
+      const { qrCode, _ticketId } = JSON.parse(decoded) as {
+        qrCode: string;
+        _ticketId: number;
+      };
+
+      return { qrCode, _ticketId };
+    } catch (error) {
+      throw new BadRequestException('Mã QR không hợp lệ');
+    }
+  }
+
+  async getMyPaymentTicket({
+    userId,
+    statusId,
+    limit,
+    page,
+  }: GetMyPaymentTicketDto & { userId: number }) {
+    const queryBuilder = this.paymentTicketRepository
+      .createQueryBuilder('paymentTicket')
+      .andWhere('paymentTicket.userId = :userId', { userId })
+      .leftJoinAndSelect('paymentTicket.ticketType', 'ticketType')
+      .leftJoinAndSelect('paymentTicket.schedule', 'schedule')
+      .leftJoinAndSelect('paymentTicket.event', 'event')
+      .leftJoinAndSelect('paymentTicket.status', 'status')
+      .orderBy('paymentTicket.id', 'DESC');
+
+    if (statusId) {
+      queryBuilder.andWhere('paymentTicket.statusId = :statusId', { statusId });
+    }
+
+    return await paginate(queryBuilder, { limit, page });
+  }
+
+  async transferTicket({
+    ticketId,
+    email,
+    txhash,
+    walletAddress,
+    userId,
+  }: TransferTicketDto & { walletAddress: string; userId: number }) {
+    txhash = formatTxhash(txhash);
+
+    const ticket = await this.userTicketRepository.findOne({
+      where: { id: ticketId, userId },
+    });
+    if (!ticket) {
+      throw new NotFoundException('Không tìm thấy vé');
+    }
+
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const eventInterface = new ethers.Interface(eventAbi);
+    const txReceipt = await provider.waitForTransaction(
+      txhash,
+      undefined,
+      TRANSACTION_TIMEOUT,
+    );
+
+    if (!txReceipt || txReceipt.status !== 1) {
+      throw new NotFoundException(`Giao dịch ${txhash} không tồn tại`);
+    }
+
+    const transferTicketTransactionParsedLog = txReceipt?.logs
+      .map((log) => {
+        try {
+          return eventInterface.parseLog(log);
+        } catch (e) {
+          return null; // log không match ABI → bỏ qua
+        }
+      })
+      .find((parsedLog) => parsedLog?.name === 'TicketTransferred');
+
+    const contractAddress = txReceipt.to!;
+
+    if (!transferTicketTransactionParsedLog) {
+      throw new BadRequestException(`Giao dịch ${txhash} không hợp lệ`);
+    }
+
+    if (
+      contractAddress.toLowerCase() !== EVENT_CONTRACT_ADDRESS.toLowerCase()
+    ) {
+      throw new BadRequestException(`Giao dịch ${txhash} không hợp lệ`);
+    }
+
+    if (walletAddress.toLowerCase() !== txReceipt.from.toLowerCase()) {
+      throw new UnauthorizedException();
+    }
+
+    const args = transferTicketTransactionParsedLog.args;
+    const _ticketId = Number(args.ticketId);
+
+    if (ticket._ticketId !== _ticketId) {
+      throw new BadRequestException('Vé không hợp lệ');
+    }
+
+    const receiver = await this.userRepository.findOne({
+      where: { email },
+    });
+    if (!receiver) {
+      throw new NotFoundException('Người nhận không tồn tại');
+    }
+
+    ticket.userId = receiver.id;
+    ticket.walletAddress = args.to;
+    await this.userTicketRepository.save(ticket);
+
+    return ticket;
   }
 }
