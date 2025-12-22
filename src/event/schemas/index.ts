@@ -84,3 +84,31 @@ export const transferTicketSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   txhash: z.string().trim(),
 });
+
+export const requestSchedulePayoutSchema = z.object({
+  scheduleId: z.number(),
+});
+
+export const getMyPaymentOrganizerSchema = z
+  .object({
+    statusId: z.coerce.number().optional(),
+  })
+  .extend(paginationSchema.shape);
+
+export const getOrganizerPaymentTicketSchema = z
+  .object({
+    eventId: z.coerce.number().optional(),
+    scheduleId: z.coerce.number().optional(),
+    statusId: z.coerce.number().optional(),
+    paymentTxhash: z.string().trim().optional(),
+  })
+  .extend(paginationSchema.shape);
+
+export const getCheckInStatisticsSchema = z.object({
+  scheduleId: z.coerce.number(),
+});
+
+export const getRevenueStatisticsSchema = z.object({
+  scheduleId: z.coerce.number(),
+  period: z.enum(['24h', '30d']).optional().default('24h'),
+});

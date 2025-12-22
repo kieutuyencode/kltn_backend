@@ -24,6 +24,9 @@ export class EventSchedule extends IdWithTimestamps {
   @TxhashColumn({ nullable: true })
   assignTxhash?: string | null;
 
+  @Column('boolean', { default: false })
+  isAssigned: boolean;
+
   @ManyToOne(() => Event, { onDelete: 'CASCADE' })
   event: Event;
 

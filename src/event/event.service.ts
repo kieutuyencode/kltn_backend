@@ -15,6 +15,9 @@ import {
   InjectRepository,
   MoreThan,
   Not,
+  PaymentOrganizer,
+  PaymentOrganizerStatus,
+  PaymentOrganizerStatusId,
   PaymentTicket,
   PaymentTicketStatus,
   PaymentTicketStatusId,
@@ -28,13 +31,17 @@ import {
   CreateScheduleDto,
   CreateTicketTypeDto,
   GetMyEventDto,
+  GetMyPaymentOrganizerDto,
   GetMyPaymentTicketDto,
+  GetOrganizerPaymentTicketDto,
   GetMyTicketDto,
   GetPublicEventDto,
   TransferTicketDto,
   UpdateEventDto,
   UpdateScheduleDto,
   UpdateTicketTypeDto,
+  GetCheckInStatisticsDto,
+  GetRevenueStatisticsDto,
 } from './dtos';
 import { FileService, Folder, isSameFileName } from '~/file';
 import { DateTime, dayUTC } from '~/date-time';
@@ -50,6 +57,8 @@ import { ethers } from 'ethers';
 import { eventAbi } from '~/blockchain/abis';
 import { generateOtpCode } from '~/shared';
 import { decode, encode, hash, verifyHash } from '~/security';
+import { ConfigService } from '~/config';
+import { ConfigKey } from '~/database';
 
 @Injectable()
 export class EventService {
@@ -74,6 +83,11 @@ export class EventService {
     private readonly paymentTicketStatusRepository: Repository<PaymentTicketStatus>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PaymentOrganizer)
+    private readonly paymentOrganizerRepository: Repository<PaymentOrganizer>,
+    private readonly configService: ConfigService,
+    @InjectRepository(PaymentOrganizerStatus)
+    private readonly paymentOrganizerStatusRepository: Repository<PaymentOrganizerStatus>,
   ) {}
 
   async getCategory() {
@@ -909,6 +923,48 @@ export class EventService {
     return await paginate(queryBuilder, { limit, page });
   }
 
+  async getOrganizerPaymentTicket({
+    userId,
+    eventId,
+    scheduleId,
+    statusId,
+    paymentTxhash,
+    limit,
+    page,
+  }: GetOrganizerPaymentTicketDto & { userId: number }) {
+    const queryBuilder = this.paymentTicketRepository
+      .createQueryBuilder('paymentTicket')
+      .leftJoinAndSelect('paymentTicket.ticketType', 'ticketType')
+      .leftJoinAndSelect('paymentTicket.schedule', 'schedule')
+      .leftJoinAndSelect('paymentTicket.status', 'status')
+      .leftJoinAndSelect('paymentTicket.user', 'user')
+      .innerJoinAndSelect('paymentTicket.event', 'event')
+      .andWhere('event.userId = :userId', { userId })
+      .orderBy('paymentTicket.id', 'DESC');
+
+    if (eventId) {
+      queryBuilder.andWhere('paymentTicket.eventId = :eventId', { eventId });
+    }
+
+    if (scheduleId) {
+      queryBuilder.andWhere('paymentTicket.scheduleId = :scheduleId', {
+        scheduleId,
+      });
+    }
+
+    if (statusId) {
+      queryBuilder.andWhere('paymentTicket.statusId = :statusId', { statusId });
+    }
+
+    if (paymentTxhash) {
+      queryBuilder.andWhere('paymentTicket.paymentTxhash = :paymentTxhash', {
+        paymentTxhash,
+      });
+    }
+
+    return await paginate(queryBuilder, { limit, page });
+  }
+
   async transferTicket({
     ticketId,
     email,
@@ -982,5 +1038,355 @@ export class EventService {
     await this.userTicketRepository.save(ticket);
 
     return ticket;
+  }
+
+  async getPaymentOrganizerStatus() {
+    const statuses = await this.paymentOrganizerStatusRepository.find();
+    return statuses;
+  }
+
+  async requestSchedulePayout({
+    scheduleId,
+    userId,
+    walletAddress,
+  }: {
+    scheduleId: number;
+    userId: number;
+    walletAddress: string;
+  }) {
+    const paymentOrganizer = await this.paymentOrganizerRepository.findOne({
+      where: { scheduleId, userId },
+    });
+    if (paymentOrganizer) {
+      throw new BadRequestException('Thanh toán đã được yêu cầu');
+    }
+
+    const schedule = await this.eventScheduleRepository.findOne({
+      where: { id: scheduleId, event: { userId } },
+    });
+    if (!schedule) {
+      throw new NotFoundException('Không tìm thấy suất diễn');
+    }
+    if (schedule.endDate.isAfter(dayUTC())) {
+      throw new BadRequestException('Suất diễn chưa kết thúc');
+    }
+
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const eventContract = new ethers.Contract(
+      EVENT_CONTRACT_ADDRESS,
+      eventAbi,
+      provider,
+    );
+
+    let organizerSchedule: string = '';
+    try {
+      organizerSchedule = await eventContract.getOrganizerSchedule(scheduleId);
+    } catch (error) {
+      // ignore error
+    }
+    if (
+      organizerSchedule.toLowerCase() !==
+      schedule.organizerAddress.toLowerCase()
+    ) {
+      throw new BadRequestException(
+        'Vui lòng đợi hệ thống cập nhật ví tổ chức suất diễn',
+      );
+    }
+    if (
+      walletAddress.toLowerCase() !== schedule.organizerAddress.toLowerCase()
+    ) {
+      throw new UnauthorizedException();
+    }
+
+    const feeRate = await this.configService.getValue(
+      ConfigKey.SELL_TICKET_FEE_RATE,
+    );
+    const scheduleBalance = fromUnits(
+      (await eventContract.getScheduleBalance(scheduleId)) as bigint,
+    );
+    const feeAmount = scheduleBalance.mul(feeRate!);
+    const receiveAmount = scheduleBalance.sub(feeAmount);
+
+    if (receiveAmount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException(
+        'Chưa bán được vé nên không thể yêu cầu thanh toán',
+      );
+    }
+
+    const newPaymentOrganizer = new PaymentOrganizer({
+      organizerAddress: schedule.organizerAddress,
+      receiveAmount,
+      feeAmount,
+      scheduleId,
+      eventId: schedule.eventId,
+      userId,
+      statusId: PaymentOrganizerStatusId.PENDING,
+    });
+    await this.paymentOrganizerRepository.save(newPaymentOrganizer);
+
+    return newPaymentOrganizer;
+  }
+
+  async getMyPaymentOrganizer({
+    userId,
+    statusId,
+    limit,
+    page,
+  }: GetMyPaymentOrganizerDto & { userId: number }) {
+    const queryBuilder = this.paymentOrganizerRepository
+      .createQueryBuilder('paymentOrganizer')
+      .andWhere('paymentOrganizer.userId = :userId', { userId })
+      .leftJoinAndSelect('paymentOrganizer.schedule', 'schedule')
+      .leftJoinAndSelect('paymentOrganizer.event', 'event')
+      .leftJoinAndSelect('paymentOrganizer.status', 'status')
+      .orderBy('paymentOrganizer.id', 'DESC');
+
+    if (statusId) {
+      queryBuilder.andWhere('paymentOrganizer.statusId = :statusId', {
+        statusId,
+      });
+    }
+
+    return await paginate(queryBuilder, { limit, page });
+  }
+
+  async getMyPaymentOrganizerBySchedule({
+    userId,
+    scheduleId,
+  }: {
+    userId: number;
+    scheduleId: number;
+  }) {
+    const paymentOrganizer = await this.paymentOrganizerRepository
+      .createQueryBuilder('paymentOrganizer')
+      .andWhere('paymentOrganizer.userId = :userId', { userId })
+      .andWhere('paymentOrganizer.scheduleId = :scheduleId', { scheduleId })
+      .leftJoinAndSelect('paymentOrganizer.status', 'status')
+      .getOne();
+
+    return paymentOrganizer;
+  }
+
+  async getCheckInStatistics({
+    scheduleId,
+    userId,
+  }: GetCheckInStatisticsDto & { userId: number }) {
+    // Verify schedule ownership
+    await this.checkScheduleOwner({ scheduleId, userId });
+
+    // Get all ticket types for this schedule
+    const ticketTypes = await this.eventTicketTypeRepository.find({
+      where: { scheduleId },
+      order: { saleStartDate: 'ASC' },
+    });
+
+    // Get all user tickets for this schedule
+    const userTickets = await this.userTicketRepository.find({
+      where: { scheduleId },
+    });
+
+    // Calculate total tickets sold
+    const totalSold = ticketTypes.reduce(
+      (sum, type) => sum + (type.originalQuantity - type.remainingQuantity),
+      0,
+    );
+
+    // Calculate total checked-in tickets
+    const totalCheckedIn = userTickets.filter(
+      (ticket) => ticket.isRedeemed,
+    ).length;
+
+    // Calculate check-in rate
+    const checkInRate = totalSold > 0 ? totalCheckedIn / totalSold : 0;
+
+    // Calculate per-ticket-type statistics
+    const details = ticketTypes.map((ticketType) => {
+      const sold = ticketType.originalQuantity - ticketType.remainingQuantity;
+      const checkedIn = userTickets.filter(
+        (ticket) => ticket.ticketTypeId === ticketType.id && ticket.isRedeemed,
+      ).length;
+      const checkInRate = sold > 0 ? checkedIn / sold : 0;
+
+      return {
+        ticketTypeId: ticketType.id,
+        ticketTypeName: ticketType.name,
+        price: ticketType.price.toString(),
+        checkedIn,
+        sold,
+        checkInRate: Math.round(checkInRate * 10000) / 10000, // Round to 4 decimal places
+      };
+    });
+
+    return {
+      overview: {
+        totalCheckedIn,
+        totalSold,
+        checkInRate: Math.round(checkInRate * 10000) / 10000, // Round to 4 decimal places
+      },
+      details,
+    };
+  }
+
+  async getRevenueStatistics({
+    scheduleId,
+    period,
+    userId,
+  }: GetRevenueStatisticsDto & { userId: number }) {
+    // Verify schedule ownership
+    await this.checkScheduleOwner({ scheduleId, userId });
+
+    // Get all ticket types for this schedule
+    const ticketTypes = await this.eventTicketTypeRepository.find({
+      where: { scheduleId },
+      order: { saleStartDate: 'ASC' },
+    });
+
+    // Calculate date range based on period
+    const now = dayUTC();
+    const startDate =
+      period === '24h' ? now.subtract(1, 'day') : now.subtract(30, 'day');
+
+    // Get successful payment tickets for this schedule
+    const successfulPayments = await this.paymentTicketRepository.find({
+      where: {
+        scheduleId,
+        statusId: PaymentTicketStatusId.SUCCESS,
+      },
+      order: { createdAt: 'ASC' },
+    });
+
+    // Calculate total revenue (from successful payments)
+    const totalRevenue = successfulPayments.reduce(
+      (sum, payment) => sum.plus(payment.tokenAmount),
+      new Decimal(0),
+    );
+
+    // Calculate total revenue target (all ticket types * price * quantity)
+    const totalRevenueTarget = ticketTypes.reduce(
+      (sum, type) => sum.plus(type.price.mul(type.originalQuantity)),
+      new Decimal(0),
+    );
+
+    // Calculate total tickets sold
+    const totalTicketsSold = ticketTypes.reduce(
+      (sum, type) => sum + (type.originalQuantity - type.remainingQuantity),
+      0,
+    );
+
+    // Calculate total tickets target
+    const totalTicketsTarget = ticketTypes.reduce(
+      (sum, type) => sum + type.originalQuantity,
+      0,
+    );
+
+    // Calculate rates
+    const revenueRate = totalRevenueTarget.greaterThan(0)
+      ? totalRevenue.div(totalRevenueTarget).toNumber()
+      : 0;
+    const ticketsRate =
+      totalTicketsTarget > 0 ? totalTicketsSold / totalTicketsTarget : 0;
+
+    // Generate chart data (group by date or hour depending on period)
+    const chartData: Array<{
+      date: string;
+      revenue: number;
+      ticketsSold: number;
+    }> = [];
+
+    // Create a map to aggregate data by date/hour
+    const dateMap = new Map<
+      string,
+      { revenue: Decimal; ticketsSold: number }
+    >();
+
+    if (period === '24h') {
+      // For 24h period, group by hour
+      let currentHour = startDate.startOf('hour');
+      while (!currentHour.isAfter(now, 'hour')) {
+        const hourKey = currentHour.format('HH:00');
+        dateMap.set(hourKey, { revenue: new Decimal(0), ticketsSold: 0 });
+        currentHour = currentHour.add(1, 'hour');
+      }
+
+      // Aggregate payment tickets by hour
+      successfulPayments.forEach((payment) => {
+        const paymentDate = dayUTC(payment.createdAt);
+        if (!paymentDate.isBefore(startDate, 'hour')) {
+          const hourKey = paymentDate.format('HH:00');
+          const existing = dateMap.get(hourKey) || {
+            revenue: new Decimal(0),
+            ticketsSold: 0,
+          };
+          existing.revenue = existing.revenue.plus(payment.tokenAmount);
+          existing.ticketsSold += payment.ticketQuantity;
+          dateMap.set(hourKey, existing);
+        }
+      });
+    } else {
+      // For 30d period, group by date
+      let currentDate = startDate.startOf('day');
+      while (!currentDate.isAfter(now, 'day')) {
+        const dateKey = currentDate.format('YYYY-MM-DD');
+        dateMap.set(dateKey, { revenue: new Decimal(0), ticketsSold: 0 });
+        currentDate = currentDate.add(1, 'day');
+      }
+
+      // Aggregate payment tickets by date
+      successfulPayments.forEach((payment) => {
+        const paymentDate = dayUTC(payment.createdAt);
+        if (!paymentDate.isBefore(startDate, 'day')) {
+          const dateKey = paymentDate.format('YYYY-MM-DD');
+          const existing = dateMap.get(dateKey) || {
+            revenue: new Decimal(0),
+            ticketsSold: 0,
+          };
+          existing.revenue = existing.revenue.plus(payment.tokenAmount);
+          existing.ticketsSold += payment.ticketQuantity;
+          dateMap.set(dateKey, existing);
+        }
+      });
+    }
+
+    // Convert map to array and sort by date
+    dateMap.forEach((value, date) => {
+      chartData.push({
+        date,
+        revenue: value.revenue.toNumber(),
+        ticketsSold: value.ticketsSold,
+      });
+    });
+
+    chartData.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Calculate per-ticket-type statistics
+    const details = ticketTypes.map((ticketType) => {
+      const sold = ticketType.originalQuantity - ticketType.remainingQuantity;
+      const salesRate =
+        ticketType.originalQuantity > 0
+          ? sold / ticketType.originalQuantity
+          : 0;
+
+      return {
+        ticketTypeId: ticketType.id,
+        ticketTypeName: ticketType.name,
+        price: ticketType.price.toString(),
+        sold,
+        total: ticketType.originalQuantity,
+        salesRate: Math.round(salesRate * 10000) / 10000, // Round to 4 decimal places
+      };
+    });
+
+    return {
+      overview: {
+        totalRevenue: totalRevenue.toString(),
+        totalRevenueTarget: totalRevenueTarget.toString(),
+        revenueRate: Math.round(revenueRate * 10000) / 10000, // Round to 4 decimal places
+        totalTicketsSold,
+        totalTicketsTarget,
+        ticketsRate: Math.round(ticketsRate * 10000) / 10000, // Round to 4 decimal places
+      },
+      chart: chartData,
+      details,
+    };
   }
 }

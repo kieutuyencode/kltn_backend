@@ -29,7 +29,7 @@ export class PaymentOrganizer extends IdWithTimestamps {
   @ManyToOne(() => EventSchedule, { onDelete: 'SET NULL' })
   schedule: EventSchedule;
 
-  @Column({ nullable: true })
+  @Column({ unique: true, nullable: true })
   scheduleId: number;
 
   @ManyToOne(() => Event, { onDelete: 'SET NULL' })

@@ -4,14 +4,19 @@ import {
   createScheduleSchema,
   createTicketTypeSchema,
   getMyEventSchema,
+  getMyPaymentOrganizerSchema,
   getMyPaymentTicketSchema,
   getMyTicketSchema,
+  getOrganizerPaymentTicketSchema,
   getPublicEventSchema,
   redeemTicketSchema,
+  requestSchedulePayoutSchema,
   transferTicketSchema,
   updateEventSchema,
   updateScheduleSchema,
   updateTicketTypeSchema,
+  getCheckInStatisticsSchema,
+  getRevenueStatisticsSchema,
 } from '../schemas';
 import z from 'zod';
 
@@ -40,3 +45,23 @@ export type RedeemTicketDto = z.infer<typeof redeemTicketSchema>;
 export type GetMyPaymentTicketDto = z.infer<typeof getMyPaymentTicketSchema>;
 
 export type TransferTicketDto = z.infer<typeof transferTicketSchema>;
+
+export type RequestSchedulePayoutDto = z.infer<
+  typeof requestSchedulePayoutSchema
+>;
+
+export type GetMyPaymentOrganizerDto = z.infer<
+  typeof getMyPaymentOrganizerSchema
+>;
+
+export type GetOrganizerPaymentTicketDto = z.infer<
+  typeof getOrganizerPaymentTicketSchema
+>;
+
+export type GetCheckInStatisticsDto = z.infer<
+  typeof getCheckInStatisticsSchema
+>;
+
+export type GetRevenueStatisticsDto = z.infer<
+  typeof getRevenueStatisticsSchema
+>;

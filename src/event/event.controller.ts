@@ -16,14 +16,19 @@ import {
   CreateScheduleDto,
   CreateTicketTypeDto,
   GetMyEventDto,
+  GetMyPaymentOrganizerDto,
   GetMyPaymentTicketDto,
+  GetOrganizerPaymentTicketDto,
   GetMyTicketDto,
   GetPublicEventDto,
   RedeemTicketDto,
+  RequestSchedulePayoutDto,
   TransferTicketDto,
   UpdateEventDto,
   UpdateScheduleDto,
   UpdateTicketTypeDto,
+  GetCheckInStatisticsDto,
+  GetRevenueStatisticsDto,
 } from './dtos';
 import { Result, SchemaValidationPipe } from '~/shared';
 import {
@@ -32,14 +37,19 @@ import {
   createScheduleSchema,
   createTicketTypeSchema,
   getMyEventSchema,
+  getMyPaymentOrganizerSchema,
   getMyPaymentTicketSchema,
+  getOrganizerPaymentTicketSchema,
   getMyTicketSchema,
   getPublicEventSchema,
   redeemTicketSchema,
+  requestSchedulePayoutSchema,
   transferTicketSchema,
   updateEventSchema,
   updateScheduleSchema,
   updateTicketTypeSchema,
+  getCheckInStatisticsSchema,
+  getRevenueStatisticsSchema,
 } from './schemas';
 import { TUserPayload, UserAuth, UserPayload } from '~/user';
 import { SkipAuth } from '~/security';
@@ -341,6 +351,21 @@ export class EventController {
   }
 
   @UserAuth()
+  @Get('organizer/payment-ticket')
+  async getOrganizerPaymentTicket(
+    @Query(new SchemaValidationPipe(getOrganizerPaymentTicketSchema))
+    getOrganizerPaymentTicketDto: GetOrganizerPaymentTicketDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getOrganizerPaymentTicket({
+        ...getOrganizerPaymentTicketDto,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
   @Post('redeem-ticket')
   async redeemTicket(
     @Body(new SchemaValidationPipe(redeemTicketSchema))
@@ -371,6 +396,92 @@ export class EventController {
         ...transferTicketDto,
         userId: user.id,
         walletAddress,
+      }),
+    });
+  }
+
+  @SkipAuth()
+  @Get('payment-organizer-status')
+  async getPaymentOrganizerStatus() {
+    return Result.success({
+      data: await this.eventService.getPaymentOrganizerStatus(),
+    });
+  }
+
+  @UserAuth()
+  @WalletAuth()
+  @Post('request-schedule-payout')
+  async requestSchedulePayout(
+    @Body(new SchemaValidationPipe(requestSchedulePayoutSchema))
+    requestSchedulePayoutDto: RequestSchedulePayoutDto,
+    @UserPayload() user: TUserPayload,
+    @WalletAddress() walletAddress: string,
+  ) {
+    return Result.success({
+      message: 'Yêu cầu thanh toán thành công',
+      data: await this.eventService.requestSchedulePayout({
+        ...requestSchedulePayoutDto,
+        userId: user.id,
+        walletAddress,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('payment-organizer')
+  async getMyPaymentOrganizer(
+    @Query(new SchemaValidationPipe(getMyPaymentOrganizerSchema))
+    getMyPaymentOrganizerDto: GetMyPaymentOrganizerDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getMyPaymentOrganizer({
+        ...getMyPaymentOrganizerDto,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('schedule/:id/payment-organizer')
+  async getMyPaymentOrganizerBySchedule(
+    @Param('id') scheduleId: number,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getMyPaymentOrganizerBySchedule({
+        scheduleId,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('check-in-statistics')
+  async getCheckInStatistics(
+    @Query(new SchemaValidationPipe(getCheckInStatisticsSchema))
+    getCheckInStatisticsDto: GetCheckInStatisticsDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getCheckInStatistics({
+        ...getCheckInStatisticsDto,
+        userId: user.id,
+      }),
+    });
+  }
+
+  @UserAuth()
+  @Get('revenue-statistics')
+  async getRevenueStatistics(
+    @Query(new SchemaValidationPipe(getRevenueStatisticsSchema))
+    getRevenueStatisticsDto: GetRevenueStatisticsDto,
+    @UserPayload() user: TUserPayload,
+  ) {
+    return Result.success({
+      data: await this.eventService.getRevenueStatistics({
+        ...getRevenueStatisticsDto,
+        userId: user.id,
       }),
     });
   }

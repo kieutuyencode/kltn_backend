@@ -6,11 +6,15 @@ import {
   RPC_URL,
   TRANSACTION_TIMEOUT,
 } from '~/blockchain/constants';
+import { toUnits } from '~/blockchain/utils';
 import {
   DataSource,
+  EventSchedule,
   InjectRepository,
   IsNull,
   Not,
+  PaymentOrganizer,
+  PaymentOrganizerStatusId,
   PaymentTicket,
   PaymentTicketStatusId,
   Repository,
@@ -29,6 +33,10 @@ export class EventHandler {
     @InjectRepository(UserTicket)
     private readonly userTicketRepository: Repository<UserTicket>,
     private readonly dataSource: DataSource,
+    @InjectRepository(EventSchedule)
+    private readonly eventScheduleRepository: Repository<EventSchedule>,
+    @InjectRepository(PaymentOrganizer)
+    private readonly paymentOrganizerRepository: Repository<PaymentOrganizer>,
   ) {}
 
   @Cron(CronExpression.EVERY_SECOND, {
@@ -205,6 +213,142 @@ export class EventHandler {
       } else {
         ticket.redeemTxhash = null;
         await this.userTicketRepository.save(ticket);
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, {
+    name: `${EventHandler.name}_assignScheduleToOrganizer`,
+  })
+  async assignScheduleToOrganizer() {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const wallet = new ethers.Wallet(
+      this.env.EVENT_ADMIN_PRIVATE_KEY,
+      provider,
+    );
+    const contract = new ethers.Contract(
+      EVENT_CONTRACT_ADDRESS,
+      eventAbi,
+      wallet,
+    );
+
+    const schedules = await this.eventScheduleRepository
+      .createQueryBuilder('schedule')
+      .andWhere('schedule.isAssigned = :isAssigned', {
+        isAssigned: false,
+      })
+      .andWhere('schedule.assignTxhash IS NULL')
+      .andWhere(
+        'EXISTS (SELECT 1 FROM payment_ticket WHERE payment_ticket.schedule_id = schedule.id AND payment_ticket.status_id = :statusId)',
+        {
+          statusId: PaymentTicketStatusId.SUCCESS,
+        },
+      )
+      .andWhere(
+        'NOT EXISTS (SELECT 1 FROM payment_organizer WHERE payment_organizer.schedule_id = schedule.id)',
+      )
+      .getMany();
+
+    for (const schedule of schedules) {
+      const tx = await contract.assignScheduleToOrganizer(
+        schedule.id,
+        schedule.organizerAddress,
+      );
+
+      schedule.assignTxhash = tx.hash;
+      await this.eventScheduleRepository.save(schedule);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, {
+    name: `${EventHandler.name}_confirmAssignScheduleToOrganizer`,
+  })
+  async confirmAssignScheduleToOrganizer() {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+    const schedules = await this.eventScheduleRepository.find({
+      where: {
+        isAssigned: false,
+        assignTxhash: Not(IsNull()),
+      },
+    });
+
+    for (const schedule of schedules) {
+      const txReceipt = await provider.waitForTransaction(
+        schedule.assignTxhash!,
+        undefined,
+        TRANSACTION_TIMEOUT,
+      );
+
+      if (txReceipt && txReceipt.status === 1) {
+        schedule.isAssigned = true;
+        await this.eventScheduleRepository.save(schedule);
+      } else {
+        schedule.assignTxhash = null;
+        await this.eventScheduleRepository.save(schedule);
+      }
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, {
+    name: `${EventHandler.name}_withdrawForOrganizer`,
+  })
+  async withdrawForOrganizer() {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+    const wallet = new ethers.Wallet(
+      this.env.EVENT_ADMIN_PRIVATE_KEY,
+      provider,
+    );
+    const contract = new ethers.Contract(
+      EVENT_CONTRACT_ADDRESS,
+      eventAbi,
+      wallet,
+    );
+
+    const payments = await this.paymentOrganizerRepository.find({
+      where: {
+        statusId: PaymentOrganizerStatusId.PENDING,
+        txhash: IsNull(),
+      },
+    });
+
+    for (const payment of payments) {
+      const tx = await contract.withdrawForOrganizer(
+        payment.scheduleId,
+        toUnits(payment.receiveAmount),
+      );
+
+      payment.txhash = tx.hash;
+      await this.paymentOrganizerRepository.save(payment);
+    }
+  }
+
+  @Cron(CronExpression.EVERY_SECOND, {
+    name: `${EventHandler.name}_confirmWithdrawForOrganizer`,
+  })
+  async confirmWithdrawForOrganizer() {
+    const provider = new ethers.JsonRpcProvider(RPC_URL);
+
+    const payments = await this.paymentOrganizerRepository.find({
+      where: {
+        statusId: PaymentOrganizerStatusId.PENDING,
+        txhash: Not(IsNull()),
+      },
+    });
+
+    for (const payment of payments) {
+      const txReceipt = await provider.waitForTransaction(
+        payment.txhash!,
+        undefined,
+        TRANSACTION_TIMEOUT,
+      );
+
+      if (txReceipt && txReceipt.status === 1) {
+        payment.statusId = PaymentOrganizerStatusId.SUCCESS;
+        await this.paymentOrganizerRepository.save(payment);
+      } else {
+        payment.txhash = null;
+        await this.paymentOrganizerRepository.save(payment);
       }
     }
   }
