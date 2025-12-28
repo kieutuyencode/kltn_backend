@@ -4,7 +4,8 @@ export const CONFIRMS = 12;
 
 export const CONFIRM_TRANSACTION_TIMEOUT = 12 * 12 * 1000; // 144 seconds
 
-export const RPC_URL = 'https://1rpc.io/sepolia';
+export const RPC_URL =
+  'https://api.zan.top/node/v1/eth/sepolia/01d12cb5e45e43b6b9c0575538496148';
 
 export const EVENT_CONTRACT_ADDRESS =
   '0xfd46e56f0A28551Fa02790248548A1a615753cBc';
