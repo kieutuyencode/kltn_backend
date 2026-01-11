@@ -363,7 +363,7 @@ export class EventService {
         'Thời gian bắt đầu phải trước thời gian kết thúc',
       );
     }
-    if (startDate.isSame(endDate, 'day')) {
+    if (startDate.isSame(endDate)) {
       throw new BadRequestException(
         'Thời gian bắt đầu và thời gian kết thúc không được trùng nhau',
       );
@@ -675,6 +675,8 @@ export class EventService {
       .andWhere('event.statusId = :statusId', {
         statusId: EventStatusId.ACTIVE,
       })
+      .addOrderBy('schedules.startDate', 'ASC')
+      .addOrderBy('ticketTypes.price', 'ASC')
       .getOne();
 
     return event;

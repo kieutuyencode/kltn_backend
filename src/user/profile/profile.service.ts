@@ -38,6 +38,9 @@ export class ProfileService {
     if (data.phone) {
       user.phone = data.phone;
     }
+    if (data.description) {
+      user.description = data.description;
+    }
     if (data.avatar && !isSameFileName(data.avatar, user.avatar)) {
       const newAvatarPath =
         await this.fileService.moveFromTemporaryAndDeleteOldFile({
