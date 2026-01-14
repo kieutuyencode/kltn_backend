@@ -664,17 +664,28 @@ export class EventService {
   }
 
   async getPublicEventDetail({ slug }: { slug: string }) {
+    const nowDateTime = dayUTC();
+    const now = nowDateTime.toISOString();
     const event = await this.eventRepository
       .createQueryBuilder('event')
       .leftJoinAndSelect('event.status', 'status')
       .leftJoinAndSelect('event.category', 'category')
       .leftJoinAndSelect('event.user', 'user')
-      .leftJoinAndSelect('event.schedules', 'schedules')
-      .leftJoinAndSelect('schedules.ticketTypes', 'ticketTypes')
+      .innerJoinAndSelect(
+        'event.schedules',
+        'schedules',
+        'schedules.startDate > :now',
+      )
+      .innerJoinAndSelect(
+        'schedules.ticketTypes',
+        'ticketTypes',
+        '(ticketTypes.remainingQuantity > 0 AND ticketTypes.saleEndDate > :now)',
+      )
       .andWhere('event.slug = :slug', { slug })
       .andWhere('event.statusId = :statusId', {
         statusId: EventStatusId.ACTIVE,
       })
+      .setParameter('now', now)
       .addOrderBy('schedules.startDate', 'ASC')
       .addOrderBy('ticketTypes.price', 'ASC')
       .getOne();
