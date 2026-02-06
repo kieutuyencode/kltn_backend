@@ -17,11 +17,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "typeorm migration:generate src/database/migrations/resources/$npm_config_name -d src/database/migrations/index.ts",
-    "migration:run": "typeorm migration:run -d src/database/migrations/index.ts",
-    "migration:revert": "typeorm migration:revert -d src/database/migrations/index.ts",
-    "migration:create": "typeorm migration:create src/database/migrations/resources/$npm_config_name"
+    "typeorm": "typeorm-ts-node-commonjs"
   },
   "dependencies": {
     "@datalust/winston-seq": "^2.0.0",

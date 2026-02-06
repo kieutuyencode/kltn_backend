@@ -80,17 +80,21 @@ A NestJS backend application for event ticketing and management, featuring user 
 
 4. **Configure database and run migrations:**
    - Ensure `src/database/migrations/index.ts` matches your database setup.
-   - Generate a migration (optional):
+   - Generate a migration from entity changes, then run pending migrations:
 
    ```bash
-   npm run typeorm migration:generate src/database/migrations/resources/YourMigrationName -d src/database/migrations/index.ts
+   make migration_generate MIGRATION_NAME=YourMigrationName
+   make migration_run
    ```
 
-   - Run migrations:
+   All migration commands (via [Makefile](Makefile)):
 
-   ```bash
-   npm run typeorm migration:run -d src/database/migrations/index.ts
-   ```
+   | Command                                                    | Description                            |
+   | ---------------------------------------------------------- | -------------------------------------- |
+   | `make migration_generate MIGRATION_NAME=YourMigrationName` | Generate migration from entity changes |
+   | `make migration_create MIGRATION_NAME=YourMigrationName`   | Create an empty migration file         |
+   | `make migration_run`                                       | Run pending migrations                 |
+   | `make migration_revert`                                    | Revert the last migration              |
 
 5. **Run the development server:**
 
