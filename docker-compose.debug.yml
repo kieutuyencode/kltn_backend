@@ -1,6 +1,6 @@
 services:
-  basetemplatenestjs:
-    image: basetemplatenestjs
+  kltn_backend:
+    image: kltn_backend
     build:
       context: .
       dockerfile: ./Dockerfile
