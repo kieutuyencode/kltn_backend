@@ -124,7 +124,7 @@ kltn_backend/
 │   │   ├── seedings/           # Seed data
 │   │   └── ...
 │   ├── date-time/              # Date/time utilities
-│   ├── environment-variables/  # Env validation and loading
+│   ├── environment-variables/  # Env config and loading
 │   ├── event/                  # Event module (controller, service, DTOs, schemas)
 │   ├── file/                   # File upload and storage
 │   ├── job/                    # Cron jobs and scheduler
@@ -154,7 +154,7 @@ kltn_backend/
 | ------------------------------------------------------------- | -------------------------------------- |
 | `PORT`                                                        | Server port (default: 3333)            |
 | `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` | MySQL connection                       |
-| `MAIL_*`                                                      | SMTP settings for notifications        |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM_NAME` | SMTP settings for notifications |
 | `JWT_SECRET`, `JWT_EXPIRES_IN`                                | JWT configuration                      |
 | `EVENT_ADMIN_PRIVATE_KEY`                                     | Admin key for event-related operations |
 
